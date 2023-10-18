@@ -1,0 +1,94 @@
+COCIORAN STEFAN 331CA 
+
+- so_fopen - 
+Deschide un fisier al carui path si mod este primit ca parametru folosind 
+functiile POSIX si Win32 aferente (open/CreateFile). Se aloca memorie pentru 
+o structura de tip SO_FILE, sunt initializate campurile acesteia si este returnata. 
+In caz de eroare, se intoarce NULL.
+
+- so_fclose - 
+Se apeleaza mai intai functia so_fflush pentru a pune in fisier datele ramase 
+nescrise, apoi se inchide fisierul primit ca parametru folosind close/CloseHandle 
+si se elibereaza memoria ocupata de structura SO_FILE. In cazul in care apare o 
+eroare la inchiderea fisierului sau la fflush, se returneaza SO_EOF(-1). 
+
+- so_fgetc -
+Daca cursorul de citire pentru buffer a ajuns la capat, se apeleaza functia 
+fill_buffer care va invalida continutul curent al buffer-ului si se vor introduce 
+date noi (se citesc din fisier folosind read/ReadFile). 
+Se ia un caracter din buffer-ul de citire, se incrementeaza pozitia cursorului 
+si caracterul respectiv este returnat ca unsigned char.
+
+- so_fputc -
+Pentru fisierele deschise in modul "a" sau "a+" se pozitioneaza cursorul la 
+sfarsitul fisierului printr-un apel al functiei so_fseek.
+Apoi, se verifica daca buffer-ul de scriere este plin. Daca da, atunci se face 
+flush la buffer. Caracterul primit ca parametru este castat la unsigned char 
+si este introdus in buffer-ul de write.
+
+- so_fread -
+Se ia cate un caracter folosind functia so_fgetc si este stocat la adresa ptr, 
+apoi se incrementeaza ptr. Pentru fiecare element de dimensiune size citit cu 
+success este incrementata variabila ret (initial 0). In momentul in care so_fgetc 
+intoarce o eroare, inseamna ca trebuie sa se opreasca din citit si se returneaza 
+numarul de elemente care au fost citite cu success pana in acel moment. 
+De asemenea, pozitia cursorului fisierului (stream->offset) este actualizata.
+
+- so_fwrite -
+Fiindca ptr este de tip const void*, i-am facut o copie pe care am declarat-o 
+ca fiind char* pentru pasa continutul sau functiei so_fputc. Se procedeaza 
+asemanator ca la functia so_fread.
+
+- so_fseek -
+Daca ultima operatie efectuata pe fisier a fost una de citire, intregul continut 
+al buffer-ului trebuie invalidat. Daca ultima operatie a fost una de scriere, 
+se da flush la buffer si se scriu datele in fisier.
+Se apeleaza functia lseek/SetFilePointer pentru a seta cursorul in fisier la 
+pozitia dorita, a carei valoare de retur va fi exact noua pozitie in fisier.
+Se actualizeaza astfel valoarea field-ului "offset". 
+
+- so_ftell -
+Pentru fiecare operatie de scriere sau citire sau fseek, field-ul "offset" al 
+structurii SO_FILE este actualizat pentru a indica pozitia cursorului in fisier. 
+Functia va returna valoarea offset-ului.
+
+- so_fflush -
+Daca buffer-ul este deja gol, se returneaza valoarea 0. Altfel, se efectueaza 
+apeluri repetate ale functiei write/WriteFile pana cand intreg continutul 
+buffer-ului a fost scris cu success in fisier. Dupa aceea, continutul sau 
+curent este invalidat, buffer-ul este golit si se pot introduce noi date.
+
+- so_fileno - 
+Intoarce file descriptorul sau HANDLE-ul asociat structurii SO_FILE.
+
+- so_feof -
+Daca la citire (read/ReadFile) s-a ajuns la finalul fisierului (n-au mai putut 
+fi citite date), field-ul "eof" al structurii SO_FILE este setat ca fiind 1.
+Functia intoarce valoarea acestui field/flag, 1 daca s-a ajuns la sfarsit sau 
+0 in caz contrar.
+
+- so_ferror -
+Daca a fost intalnita vreo eroare la oricare din functiile ce lucreaza cu fisierul 
+dat ca parametru, field-ul "err" al structurii SO_FILE este setat ca fiind 1.
+Functia intoarce valoarea acestui field/flag, 1 daca s-a intampinat o eroare sau 
+0 in caz contrar.
+
+Pentru functiile so_popen si so_pclose m-am folosit de indicatiile/explicatiile 
+din Laboratorul 3 si m-am inspirat din implementarea lor propriu-zisa [1], iar 
+pentru celelalte functii am citit documentatia de aici [2].
+
+- so_popen - 
+Lanseaza un proces nou, care va executa comanda specificata de parametrul command. 
+Se va executa "sh -c command" si se foloseste un pipe pentru a redirecta intrarea 
+standard/iesirea standard a noului proces. PID-ul acestuia este memorat intr-o 
+structura de tip SO_FILE. Functia so_popen va returna aceasta structura pe care 
+apoi se pot face operatiile uzuale de citire/scriere.
+
+- so_pclose -
+Se extrage PID-ul din structura SO_FILE data ca parametru, fisierul respectiv 
+este inchis, se elibereaza memoria folosita, si se asteapta terminarea procesului 
+folosind functia waitpid. 
+ 
+Referinte:
+[1]. https://android.googlesource.com/platform/bionic/+/3884bfe9661955543ce203c60f9225bbdf33f6bb/libc/unistd/popen.c
+[2]. https://www.cplusplus.com/reference/cstdio/
